@@ -1,11 +1,14 @@
 package org.vexavior.vertx.demo;
 
+import com.jayway.jsonpath.DocumentContext;
+import com.jayway.jsonpath.JsonPath;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.file.FileSystem;
 import javafx.util.Pair;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
@@ -17,8 +20,12 @@ import java.nio.file.WatchEvent;
 import java.nio.file.WatchKey;
 import java.nio.file.WatchService;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+
 
 import static java.nio.file.StandardWatchEventKinds.ENTRY_MODIFY;
 
@@ -98,21 +105,83 @@ public class DirectoryFileChangeCopy {
         }
     }
 
+    private static class Config {
+        private final DocumentContext jsonDoc;
+        private final List<String> srcRootDirs;
+        private final String dstRootDir;
+        private final String filenameRegex;
 
-    public static final String FILENAME_TO_WATCH = "^(?:[^.]+)+(?:\\.jsp|\\.css|\\.js)$";
+        List<String> getSrcRootDirs() {
+            return srcRootDirs;
+        }
+
+        String getDstRootDir() {
+            return dstRootDir;
+        }
+
+        String getFilenameRegex() {
+            return filenameRegex;
+        }
+
+        private Config() throws Exception {
+            InputStream is = this.getClass().getClassLoader().getResourceAsStream("directory-scan-copy.json");
+            try {
+                jsonDoc = JsonPath.parse(is);
+            } finally {
+                is.close();
+            }
+            srcRootDirs = parseSrcRootDirectories();
+            dstRootDir = parseDstRootDirectory();
+            filenameRegex = parseFilenameRegex();
+        }
+
+        private List<String> parseSrcRootDirectories() throws Exception {
+            String[] res = jsonDoc.read("$.srcRootDirs", String[].class);
+            checkNull(res, "srcRootDirs not found");
+            List<String> ret = new ArrayList<>();
+            Arrays.asList(res).forEach(val -> ret.add(mkUri(val)));
+            return ret;
+        }
+
+        private String parseDstRootDirectory() throws Exception {
+            String res = jsonDoc.read("$.dstRootDir", String.class);
+            checkNull(res, "dstRootDir not found");
+            return mkUri(res);
+        }
+
+        private String parseFilenameRegex() throws Exception {
+            String res = jsonDoc.read("$.filenameRegex", String.class);
+            checkNull(res, "filenameMatchRegex not found");
+            return res;
+        }
+
+        private String mkUri(String obj) {
+            String val = obj;
+            val = val.matches("^/") ? val : String.format("/%s", val);
+            val = String.format("file://%s", val);
+            return val;
+        }
+
+        private void checkNull(Object v, String msg) throws Exception {
+            if (v == null) {
+                throw new Exception(msg);
+            }
+        }
+
+    }
+
     private static HashMap<WatchKey, Pair<Path, Path>> keys = new HashMap<>();
 
     private static Map<WatchKey, CopyPathsResolver> resolverMap = new HashMap<>();
 
     public static void main(String[] args) throws Exception {
         Vertx vertx = Vertx.vertx();
+        Config config = new Config();
 
-        String[] srcRootUriStrs = new String[]{
-                "file:///C:/Users/sliu11/MacLeasing/Projects/iPortal/iportal/src/site",
-                "file:///C:/Users/sliu11/MacLeasing/Projects/iPortal/iportal/src/main/webapp"
-        };
+        List<String> srcRootUriStrs = config.getSrcRootDirs();
 
-        URI destUri = URI.create("file:///C:/Users/sliu11/MacLeasing/Projects/iPortal/iportal/target/iportal");
+        URI destUri = URI.create(config.getDstRootDir());
+        String filenameRegex = config.getFilenameRegex();
         Path rootDstPath = Paths.get(destUri);
 
         WatchService watchService = FileSystems.getDefault().newWatchService();
@@ -148,7 +217,7 @@ public class DirectoryFileChangeCopy {
 
                     CopyPathsResolver resolver = resolverMap.get(watchKey);
                     if (resolver == null) continue;
-                    if (!resolver.pathToString(filePath).matches(FILENAME_TO_WATCH)) continue;
+                    if (!resolver.pathToString(filePath).matches(filenameRegex)) continue;
                     Path srcPath = resolver.resolveSrcPath(filePath);
                     Path dstPath = resolver.resolveDstPath(filePath);
                     if (srcPath.toFile().isDirectory()) continue;

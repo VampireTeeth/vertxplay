@@ -1,0 +1,8 @@
+{
+  "srcRootDirs": [
+    "C:/Users/sliu11/MacLeasing/Projects/iPortal/iportal/src/site",
+    "C:/Users/sliu11/MacLeasing/Projects/iPortal/iportal/src/main/webapp"
+  ],
+  "dstRootDir": "C:/Users/sliu11/MacLeasing/Projects/iPortal/iportal/target/iportal",
+  "filenameRegex": "^(?:[^.]+)+(?:\\.jsp|\\.css|\\.js)$"
+}
