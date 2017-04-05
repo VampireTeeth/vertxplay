@@ -16,4 +16,36 @@ include 'api'
 include 'services:webservice'
 */
 
+
+pluginRepositories {
+  maven {
+    url "${nexusRepoUrl}/caf-releases"
+    credentials {
+      username "$nexusUsername"
+      password "$nexusPassword"
+    }
+  }
+  maven {
+    url "${nexusRepoUrl}/bfs-releases"
+    credentials {
+      username "$nexusUsername"
+      password "$nexusPassword"
+    }
+  }
+  maven {
+    url "${nexusRepoUrl}/public"
+    credentials {
+      username "$nexusUsername"
+      password "$nexusPassword"
+    }
+  }
+  maven {
+    url "${nexusRepoUrl}/public-release"
+    credentials {
+      username "$nexusUsername"
+      password "$nexusPassword"
+    }
+  }
+}
+
 rootProject.name = 'vertxplay'
